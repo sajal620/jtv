@@ -1,18 +1,13 @@
 import requests
 
-url = "http://198.195.239.50/"
+url = "http://198.195.239.50/tv_channels.json"
 
-response = requests.get(url, timeout=15)
+response = requests.get(url, timeout=20)
+response.raise_for_status()
 
-print("Status Code:", response.status_code)
-print(response.text[:5000])
+print(response.text[:10000])
 
-if response.status_code == 200 and (
-    "#EXTM3U" in response.text
-):
-    with open("jtv.m3u", "w", encoding="utf-8", newline="") as f:
-        f.write(response.text)
+with open("tv_channels.json", "w", encoding="utf-8") as f:
+    f.write(response.text)
 
-    print("Playlist exported!")
-else:
-    print("এটি সরাসরি M3U playlist নয়।")
+print("JSON exported!")
