@@ -1,13 +1,18 @@
 import requests
 
-ip = "198.195.239.50"
+url = "http://198.195.239.50/"
 
-playlist = requests.get(f"http://{ip}/playlist.m3u")
+response = requests.get(url, timeout=15)
 
-print(playlist.text)
+print("Status Code:", response.status_code)
+print(response.text[:5000])
 
-with open('./jtv.m3u', 'w', newline='') as f:
-    f.write(playlist.text)
-    print("Exported!")
+if response.status_code == 200 and (
+    "#EXTM3U" in response.text
+):
+    with open("jtv.m3u", "w", encoding="utf-8", newline="") as f:
+        f.write(response.text)
 
-f.close()
+    print("Playlist exported!")
+else:
+    print("এটি সরাসরি M3U playlist নয়।")
