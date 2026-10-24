@@ -1,6 +1,6 @@
 import requests
 
-ip = "103.17.193.159:5001"
+ip = "http://dugdugilive.com/"
 
 playlist = requests.get(f"http://{ip}/playlist.m3u")
 
