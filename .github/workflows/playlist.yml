@@ -1,52 +1,46 @@
-
-name: Generate TV Playlist
+name: Generate JioTV Go playlist
 
 on:
   schedule:
     - cron: "*/20 * * * *"
   push:
     branches:
-      - main
-  workflow_dispatch:
-
-permissions:
-  contents: write
-
-concurrency:
-  group: generate-tv-playlist
-  cancel-in-progress: false
+      - main  # Runs on push to the main branch
+  workflow_dispatch:  # Allows manual triggering of the workflow
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
+    permissions:
+      contents: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6.0.2
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6.2.0
         with:
-          python-version: "3.x"
+          python-version: '3.x'
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install requests
 
-      - name: Generate playlist
-        run: python ./scripts/jtvgo.py
+      - name: Run script
+        run: "python ./scripts/jtvgo.py"
 
-      - name: Commit and push changes
+      - name: Commit changes if any
         run: |
-          git config user.email "action@github.com"
-          git config user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git config --global user.name "GitHub Action"
+          git add -A
+          git diff --quiet && git diff --staged --quiet || git commit -m "Playlist auto-updated on $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-          git add jtv.m3u
+      - name: Pull latest changes from remote
+        run: git pull origin main --rebase
 
-          if ! git diff --cached --quiet; then
-            git commit -m "Update TV playlist"
-            git push origin HEAD:main
-          else
-            echo "No playlist changes."
-          fi
+      - name: Push changes
+        run: | 
+          git pull origin main --rebase
+          git push origin main
