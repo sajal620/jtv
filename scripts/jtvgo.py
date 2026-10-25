@@ -1,58 +1,61 @@
 import requests
-from bs4 import BeautifulSoup
 import re
 
-# Target configuration
-TARGET_URL = "http://223.25.71.211:5001"
-OUTPUT_FILE = "playlist.m3u"
+# Target Config
+BASE_URL = "223.25.71.211:5001"
+# If the site requires login, put your cookies here (Get them from F12 -> Application -> Cookies)
+COOKIES = {
+    "session_id": "YOUR_SESSION_ID_HERE" 
+}
 
-def extract_media():
-    print(f"[*] Initiating crawl on {TARGET_URL}...")
+def get_active_playlist():
+    print("[*] Attempting to intercept dynamic stream tokens...")
+    
     try:
-        # Send request with a spoofed User-Agent to avoid basic bot detection
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
-        response = requests.get(TARGET_URL, headers=headers, timeout=10)
+        # 1. Get the base playlist to find channel IDs
+        response = requests.get(f"{BASE_URL}/playlist.m3u", cookies=COOKIES)
+        content = response.text
         
-        if response.status_code != 200:
-            print(f"[-] Target returned status code: {response.status_code}")
+        # 2. Find all channel key IDs or patterns that look like channel links
+        # This regex looks for things like 'channel_key_id=XXX'
+        channel_ids = re.findall(r'channel_key_id=(\d+)', content)
+        
+        if not channel_ids:
+            # If not in the m3u, try searching the main page HTML
+            page_res = requests.get(BASE_URL, cookies=COOKIES)
+            channel_ids = re.findall(r'channel_key_id=(\d+)', page_res.text)
+
+        if not channel_ids:
+            print("[-] No Channel IDs found. The server might be using encrypted tokens.")
             return
 
-        # Parse HTML content
-        soup = BeautifulSoup(response.text, 'html.parser')
+        print(f"[+] Found {len(channel_ids)} potential channels. Generating authenticated links...")
+
+        final_playlist = ["#EXTM3U"]
         
-        # Regex to find audio files (mp3, wav, ogg, m4a)
-        audio_pattern = re.compile(r'.*\.(mp3|wav|ogg|m4a)', re.IGNORECASE)
-        links = []
+        for cid in set(channel_ids):
+            # This is the critical part: we simulate the request that the web player makes
+            # We try to hit the render endpoint to get the current token
+            token_url = f"{BASE_URL}/render.m3u8?channel_key_id={cid}&q=auto"
+            
+            # We hit the URL to see if it redirects or provides a tokenized link
+            token_res = requests.get(token_url, cookies=COOKIES, allow_redirects=True)
+            
+            if token_res.status_code == 200:
+                # If the response is a redirect, the 'url' property contains the final tokenized link
+                final_link = token_res.url 
+                final_playlist.append(f"#EXTINF:-1, Channel {cid}")
+                final_playlist.append(final_link)
+                print(f"[+] Captured token for Channel {cid}")
 
-        # Search for all <a> tags and <img> tags (sometimes media is hidden in src)
-        for tag in soup.find_all(['a', 'img', 'source'], src=True):
-            link = tag.get('src') or tag.get('href')
-            if link and audio_pattern.match(link):
-                # Ensure the link is absolute
-                full_url = link if link.startswith('http') else f"{TARGET_URL}/{link}"
-                links.append(full_url)
-
-        # Also search for raw strings in the page source (for hidden API links)
-        raw_links = re.findall(r'https?://\S*\.(?:mp3|wav|ogg|m4a)', response.text)
-        links.extend(raw_links)
-
-        # Remove duplicates
-        unique_links = list(set(links))
-
-        if not unique_links:
-            print("[-] No media links found. The target might be using a JSON API or JS rendering.")
-            return
-
-        # Write to M3U Playlist format
-        with open(OUTPUT_FILE, "w") as f:
-            f.write("#EXTM3U\n")
-            for link in unique_links:
-                f.write(f"#EXTINF:-1, Track\n{link}\n")
-        
-        print(f"[+] Success! {len(unique_links)} tracks extracted to {OUTPUT_FILE}")
+        # 3. Export to file
+        with open('jtv_dynamic.m3u', 'w') as f:
+            f.write("\n".join(final_playlist))
+            
+        print("\n[!] Success: jtv_dynamic.m3u has been generated with active tokens.")
 
     except Exception as e:
-        print(f"[-] Execution error: {e}")
+        print(f"[-] Critical Error: {e}")
 
 if __name__ == "__main__":
-    extract_media()
+    get_active_playlist()
