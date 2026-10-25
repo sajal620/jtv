@@ -2,7 +2,7 @@ import requests
 import re
 
 # Target Settings
-BASE_URL = "http://223.25.71.211:5001"
+BASE_URL = "223.25.71.211:5001"
 INPUT_M3U = "jtv.m3u"  # The file you already have
 OUTPUT_M3U = "jtv_playable.m3u"
 
