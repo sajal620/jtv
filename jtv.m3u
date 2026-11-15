@@ -1,1 +1,1 @@
-{"message":"Request failed with status code: 404\nresponse: {\"code\":404,\"message\":\"Not Found\"}"}
+{"message":"Request failed with status code: 400\nresponse: {\"code\":400,\"message\":\"Bad Request\"}"}
